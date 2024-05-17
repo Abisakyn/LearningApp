@@ -63,6 +63,23 @@ namespace LearningApp.Controllers
                         Message = "User Failed to create"
                     });
                 }
+
+                //add role to the user.....
+               await _userManager.AddToRoleAsync(user, role);
+
+                return StatusCode(StatusCodes.Status201Created, new Response
+                {
+                    Status = "Success",
+                    Message = "User Created Successfully"
+                });
+            }
+            else
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new Response
+                {
+                    Status = "Error",
+                    Message = "This role does not exist"
+                });
             }
 
             //Asign role
