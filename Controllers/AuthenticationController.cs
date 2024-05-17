@@ -50,22 +50,19 @@ namespace LearningApp.Controllers
                 Email = register.Email,
                 UserName = register.Username
             };
-            var results = await _userManager.CreateAsync(user,register.Password!);
-            if(results.Succeeded)
+
+            if(await _roleManager.RoleExistsAsync(role))
             {
-                return StatusCode(StatusCodes.Status201Created, new Response
+                var results = await _userManager.CreateAsync(user, register.Password!);
+
+                if (!results.Succeeded)
                 {
-                    Status = "Success",
-                    Message = "User Created Successfully"
-                });
-            }
-            else
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, new Response
-                {
-                    Status = "Error",
-                    Message = "User Failed to create"
-                });
+                    return StatusCode(StatusCodes.Status500InternalServerError, new Response
+                    {
+                        Status = "Error",
+                        Message = "User Failed to create"
+                    });
+                }
             }
 
             //Asign role
