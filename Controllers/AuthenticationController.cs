@@ -1,5 +1,7 @@
 ﻿using LearningApp.Models;
 using LearningApp.Models.Authentication.Signup;
+using LearningApp.Service.Models;
+using LearningApp.Service.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,15 +15,17 @@ namespace LearningApp.Controllers
         private readonly SignInManager<IdentityUser> _signInManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IConfiguration _configuration;
+        private readonly IEmailService _emailService;
 
 
-        public AuthenticationController(UserManager<IdentityUser> userManager,SignInManager<IdentityUser> signInManager, RoleManager<IdentityRole> roleManager, IConfiguration configuration)
+        public AuthenticationController(UserManager<IdentityUser> userManager,SignInManager<IdentityUser> signInManager, RoleManager<IdentityRole> roleManager, IConfiguration configuration, IEmailService emailService)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _roleManager = roleManager;
 
             _configuration = configuration;
+            _emailService = emailService;
 
         }
 
@@ -83,6 +87,19 @@ namespace LearningApp.Controllers
             }
 
             //Asign role
+
+        }
+
+        [HttpGet]
+
+        public IActionResult TestEmail()
+        {
+            var message = new Message(new string[] { "abisakyn@gmail.com" }, "Test", "Subscribe to my youtube channel");
+            return StatusCode(StatusCodes.Status200OK, new Response
+            {
+                Status = "Success",
+                Message = "Email sent successfully"
+            });
 
         }
     }
