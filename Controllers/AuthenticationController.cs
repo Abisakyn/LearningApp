@@ -1,9 +1,15 @@
 ﻿using LearningApp.Models;
+using LearningApp.Models.Authentication.Login;
 using LearningApp.Models.Authentication.Signup;
 using LearningApp.Service.Models;
 using LearningApp.Service.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using Org.BouncyCastle.Pqc.Crypto.Crystals.Dilithium;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 namespace LearningApp.Controllers
 {
@@ -106,6 +112,58 @@ namespace LearningApp.Controllers
             }
             return StatusCode(StatusCodes.Status500InternalServerError,
                 new Response { Status = "Error", Message = "This user does not exist" });
+        }
+
+        [HttpPost]
+        [Route("Login")]
+        public async Task<IActionResult>Login(LoginModel loginModel)
+        {
+            //checking the user
+
+            var user=await  _userManager.FindByNameAsync(loginModel.Username!);
+
+            //checking the password
+            if (user != null && await _userManager.CheckPasswordAsync(user, loginModel.Password!))
+            {
+                //create claim list
+                var authClaims = new List<Claim>
+                {
+                    new Claim(ClaimTypes.Name, user.UserName!),
+                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                };
+
+                //add role to the list
+                var userRoles = await _userManager.GetRolesAsync(user);
+                foreach (var role in userRoles)
+                {
+                    authClaims.Add(new Claim(ClaimTypes.Role, role));
+                }
+
+                //generate the token with the claims..
+                var jwtToken =GetToken(authClaims);
+
+                //returning the token
+                return Ok(new
+                {
+                    token = new JwtSecurityTokenHandler().WriteToken(jwtToken),
+                    expiration = jwtToken.ValidTo
+                }) ;
+            }
+            return Unauthorized();
+
+        }
+        private JwtSecurityToken GetToken(List<Claim> authClaim )
+        {
+            var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
+
+            var token = new JwtSecurityToken(
+                _configuration["Jwt:Issuer"],
+                _configuration["Jwt:Audience"],
+                claims:authClaim,
+                expires: DateTime.Now.AddHours(3),
+                signingCredentials: new SigningCredentials(authSigningKey,SecurityAlgorithms.HmacSha256)
+          );
+            return token;
         }
     }
 }
