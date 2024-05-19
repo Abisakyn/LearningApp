@@ -21,6 +21,10 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
 
+//add configuration for required email
+
+builder.Services.Configure<IdentityOptions>(options=>options.SignIn.RequireConfirmedEmail=true);
+
 //email configuration
 var emailConfig = configuration.GetSection("EmailConfiguration").Get<EmailConfiguration>();
 builder.Services.AddSingleton(emailConfig!);
