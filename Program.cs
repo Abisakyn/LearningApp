@@ -50,6 +50,8 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.Configure<IdentityOptions>(options=>options.SignIn.RequireConfirmedEmail=true);
 
+builder.Services.Configure<DataProtectionTokenProviderOptions>(otps => otps.TokenLifespan = TimeSpan.FromHours(10));
+
 //email configuration
 var emailConfig = configuration.GetSection("EmailConfiguration").Get<EmailConfiguration>();
 builder.Services.AddSingleton(emailConfig!);

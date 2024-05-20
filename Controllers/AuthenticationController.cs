@@ -3,10 +3,12 @@ using LearningApp.Models.Authentication.Login;
 using LearningApp.Models.Authentication.Signup;
 using LearningApp.Service.Models;
 using LearningApp.Service.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Org.BouncyCastle.Pqc.Crypto.Crystals.Dilithium;
+using System.ComponentModel.DataAnnotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -247,6 +249,107 @@ namespace LearningApp.Controllers
 
 
         }
+
+        [HttpPost]
+        [AllowAnonymous]
+        [Route("Forgot-Password")]
+        public async Task<IActionResult> ForgotPassword([Required] string email)
+        {
+            if (string.IsNullOrEmpty(email))
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, new Response
+                {
+                    Status = "Error",
+                    Message = "Email is required."
+                });
+            }
+
+            var user = await _userManager.FindByEmailAsync(email);
+
+            if (user == null)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, new Response
+                {
+                    Status = "Error",
+                    Message = "User with the specified email does not exist."
+                });
+            }
+
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var forgotPasswordLink = Url.Action(nameof(ResetPassword), "Authentication", new { token, email = user.Email }, Request.Scheme);
+
+            if (forgotPasswordLink == null)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new Response
+                {
+                    Status = "Error",
+                    Message = "Failed to generate the password reset link."
+                });
+            }
+
+            var message = new Message(new string[] { user.Email! }, "Forgot Password Link", forgotPasswordLink);
+            _emailService.SendEmail(message);
+
+            return StatusCode(StatusCodes.Status200OK, new Response
+            {
+                Status = "Success",
+                Message = $"Password change request sent to email: {user.Email}. Please click the link below to verify."
+            });
+        }
+
+        [HttpGet("Reset-Password")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ResetPassword(string token, string email)
+        {
+            var model = new ResetPassword { Token = token, Email = email };
+            return Ok(new
+            {
+                model
+            });
+
+        }
+
+
+        [HttpPost]
+        [AllowAnonymous]
+        [Route("Reset-Password")]
+        public async Task<IActionResult> ResetPasswod(ResetPassword resetPassword)
+        {
+
+            var user = await _userManager.FindByEmailAsync(resetPassword.Email!);
+
+            if (user != null)
+            {
+                var resetPassResult = await _userManager.ResetPasswordAsync(user, resetPassword.Token!, resetPassword.Email!);
+
+                if (!resetPassResult.Succeeded)
+                {
+                    foreach (var error in resetPassResult.Errors)
+                    {
+                        ModelState.AddModelError(error.Code, error.Description);
+
+                    }
+                    //return Ok(ModelState);
+                }
+                return StatusCode(StatusCodes.Status200OK, new Response
+                {
+                    Status = "Success",
+                    Message = "Password has been changed successfully."
+                });
+
+            }
+            return StatusCode(StatusCodes.Status400BadRequest, new Response
+            {
+                Status = "Error",
+                Message = "User with the specified email does not exist."
+            });
+
+
+        }
+
+
+        
+
 
         private JwtSecurityToken GetToken(List<Claim> authClaim )
         {
