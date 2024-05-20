@@ -56,7 +56,8 @@ namespace LearningApp.Controllers
             IdentityUser user = new()
             {
                 Email = register.Email,
-                UserName = register.Username
+                UserName = register.Username,
+                TwoFactorEnabled =true
             };
 
             if (await _roleManager.RoleExistsAsync(role))
@@ -139,6 +140,27 @@ namespace LearningApp.Controllers
                     authClaims.Add(new Claim(ClaimTypes.Role, role));
                 }
 
+                if (user.TwoFactorEnabled)
+                {
+                    await _signInManager.SignOutAsync();
+
+                    await _signInManager.PasswordSignInAsync(user, loginModel.Password!, false, true);
+
+                    var token = await _userManager.GenerateTwoFactorTokenAsync(user, "Email");
+
+                    var message = new Message(new string[] { user.Email! }, "OTP Confirmation", token!);
+
+                    _emailService.SendEmail(message);
+
+                    return StatusCode(StatusCodes.Status201Created, new Response
+                    {
+                       
+                        Status = "Success",
+                        Message = $"We have sent an OTP to ypu email: {user.Email}."
+                    }); 
+
+                }
+
                 //generate the token with the claims..
                 var jwtToken =GetToken(authClaims);
 
@@ -152,6 +174,80 @@ namespace LearningApp.Controllers
             return Unauthorized();
 
         }
+
+        [HttpPost]
+        [Route("Login-2FA")]
+        public async Task<IActionResult> LoginwithOTP(string code,string username)
+        {
+            var signIn = await _signInManager.TwoFactorSignInAsync("Email", code, false, false);
+              if (signIn.Succeeded)
+              {
+                var user = await _userManager.FindByNameAsync(username);
+
+                //checking the password
+                if (user != null)
+                {
+                    //create claim list
+                    var authClaims = new List<Claim>
+                {
+                    new Claim(ClaimTypes.Name, user.UserName!),
+                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                };
+
+                    //add role to the list
+                    var userRoles = await _userManager.GetRolesAsync(user);
+                    foreach (var role in userRoles)
+                    {
+                        authClaims.Add(new Claim(ClaimTypes.Role, role));
+                    }
+
+                    if (user.TwoFactorEnabled)
+                    {
+
+                        var token = await _userManager.GenerateTwoFactorTokenAsync(user, "Email");
+
+                        var message = new Message(new string[] { user.Email! }, "OTP Confirmation", token!);
+
+                        _emailService.SendEmail(message);
+
+                        return StatusCode(StatusCodes.Status201Created, new Response
+                        {
+
+                            Status = "Success",
+                            Message = $"We have sent an OTP to ypu email: {user.Email}."
+                        });
+
+                    }
+
+                    //generate the token with the claims..
+                    var jwtToken = GetToken(authClaims);
+
+                    //returning the token
+                    return Ok(new
+                    {
+                        token = new JwtSecurityTokenHandler().WriteToken(jwtToken),
+                        expiration = jwtToken.ValidTo
+                    });
+                }
+                return StatusCode(StatusCodes.Status404NotFound, new Response
+                {
+
+                    Status = "Error",
+                    Message = $"Invalid code"
+                });
+
+              }
+
+            return StatusCode(StatusCodes.Status500InternalServerError, new Response
+            {
+
+                Status = "Error",
+                Message = $"Internal Server Error"
+            });
+
+
+        }
+
         private JwtSecurityToken GetToken(List<Claim> authClaim )
         {
             var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
