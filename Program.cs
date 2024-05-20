@@ -55,7 +55,10 @@ builder.Services.Configure<DataProtectionTokenProviderOptions>(otps => otps.Toke
 //email configuration
 var emailConfig = configuration.GetSection("EmailConfiguration").Get<EmailConfiguration>();
 builder.Services.AddSingleton(emailConfig!);
+
 builder.Services.AddScoped<IEmailService, EmailService>();
+
+builder.Services.AddScoped<IUserManagement, UserManagement>();
 
 // Add services to the container.
 
