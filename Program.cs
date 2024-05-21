@@ -9,6 +9,7 @@ using LearningApp.Service.Models;
 using LearningApp.Service.Services;
 using User.Management.Service.Services;
 using Microsoft.OpenApi.Models;
+using LearningApp.Data.Models;
 //using NETCore.MailKit.Core;
 
 var builder = WebApplication.CreateBuilder(args);
