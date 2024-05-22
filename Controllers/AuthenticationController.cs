@@ -46,7 +46,18 @@ namespace LearningApp.Controllers
 
             if (tokenResponse.IsSuccess)
             {
-                await _user.AssignRoleAsync(register.Roles!, tokenResponse.Response!.User);
+               var roleAssignmentResponse= await _user.AssignRoleAsync(register.Roles!, tokenResponse.Response!.User);
+
+                // Check if the role assignment was successful or partially successful
+                if (!roleAssignmentResponse.IsSuccess)
+                {
+                    // If the role assignment failed, delete the user
+                    await _userManager.DeleteAsync(tokenResponse.Response.User);
+
+                    // Return an error response with the message from the role assignment
+                    return StatusCode(roleAssignmentResponse.StatusCode,
+                        new Response { Status = "Error", Message = roleAssignmentResponse.Message });
+                }
                 var confirmationLink = Url.Action(nameof(ConfirmEmail), "Authentication", new { tokenResponse.Response.Token, email = register.Email }, Request.Scheme);
                 var message = new Message(new string[] { register.Email! }, "Confirmation Email Link", confirmationLink!);
                 _emailService.SendEmail(message);
@@ -96,7 +107,7 @@ namespace LearningApp.Controllers
 
                     _emailService.SendEmail(message);
 
-                    return StatusCode(StatusCodes.Status201Created, new Response
+                    return StatusCode(StatusCodes.Status200OK, new Response
                     {
 
                         Status = "Success",
@@ -177,24 +188,19 @@ namespace LearningApp.Controllers
 
                         _emailService.SendEmail(message);
 
-                        return StatusCode(StatusCodes.Status201Created, new Response
-                        {
+                        //generate the token with the claims..
+                        var jwtToken = GetToken(authClaims);
 
-                            Status = "Success",
-                            Message = $"We have sent an OTP to ypu email: {user.Email}."
+                        //returning the token
+                        return Ok(new
+                        {
+                            token = new JwtSecurityTokenHandler().WriteToken(jwtToken),
+                            expiration = jwtToken.ValidTo
                         });
 
                     }
 
-                    //generate the token with the claims..
-                    var jwtToken = GetToken(authClaims);
 
-                    //returning the token
-                    return Ok(new
-                    {
-                        token = new JwtSecurityTokenHandler().WriteToken(jwtToken),
-                        expiration = jwtToken.ValidTo
-                    });
                 }
                 return StatusCode(StatusCodes.Status404NotFound, new Response
                 {
@@ -319,12 +325,13 @@ namespace LearningApp.Controllers
         private JwtSecurityToken GetToken(List<Claim> authClaim )
         {
             var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
+            _ = int.TryParse(_configuration["Jwt:EXPIRATION_MINUTES"], out int EXPIRATION_MINUTES);
 
             var token = new JwtSecurityToken(
                 _configuration["Jwt:Issuer"],
                 _configuration["Jwt:Audience"],
                 claims:authClaim,
-                expires: DateTime.Now.AddHours(3),
+                expires: DateTime.Now.AddMinutes(EXPIRATION_MINUTES),
                 signingCredentials: new SigningCredentials(authSigningKey,SecurityAlgorithms.HmacSha256)
           );
             return token;
