@@ -1,4 +1,5 @@
-﻿using LearningApp.Models;
+﻿using LearningApp.Data.Models;
+using LearningApp.Models;
 //using LearningApp.Models.Authentication.Login;
 //using LearningApp.Models.Authentication.Signup;
 using LearningApp.Service.Models;
@@ -21,14 +22,14 @@ namespace LearningApp.Controllers
     [ApiController]
     public class AuthenticationController : ControllerBase
     {
-        private readonly UserManager<IdentityUser> _userManager;
-        private readonly SignInManager<IdentityUser> _signInManager;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IConfiguration _configuration;
         private readonly IEmailService _emailService;
         private readonly IUserManagement _user;
 
-        public AuthenticationController(UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager, RoleManager<IdentityRole> roleManager, IConfiguration configuration, IEmailService emailService, IUserManagement user)
+        public AuthenticationController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, RoleManager<IdentityRole> roleManager, IConfiguration configuration, IEmailService emailService, IUserManagement user)
         {
             _userManager = userManager;
             _signInManager = signInManager;
