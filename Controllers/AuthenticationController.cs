@@ -14,6 +14,7 @@ using Org.BouncyCastle.Pqc.Crypto.Crystals.Dilithium;
 using System.ComponentModel.DataAnnotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace LearningApp.Controllers
@@ -116,41 +117,45 @@ namespace LearningApp.Controllers
 
                 }
 
-                //checking the user
+                // Generate and return the JWT token
 
-                // var user = await _userManager.FindByNameAsync(loginModel.Username!);
-
-                //checking the password
-                if (user != null && await _userManager.CheckPasswordAsync(user, loginModel.Password!))
-                {
-                    //create claim list
-                    var authClaims = new List<Claim>
+                var authClaims = new List<Claim>
                 {
                     new Claim(ClaimTypes.Name, user.UserName!),
                     new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
                 };
 
-                    //add role to the list
-                    var userRoles = await _userManager.GetRolesAsync(user);
-                    foreach (var role in userRoles)
-                    {
-                        authClaims.Add(new Claim(ClaimTypes.Role, role));
-                    }
-
-                    //generate the token with the claims..
-                    var jwtToken = GetToken(authClaims);
-
-                    //returning the token
-                    return Ok(new
-                    {
-                        token = new JwtSecurityTokenHandler().WriteToken(jwtToken),
-                        expiration = jwtToken.ValidTo
-                    });
+                // Retrieve the user's roles and add them to the claims list
+                var userRoles = await _userManager.GetRolesAsync(user);
+                foreach (var role in userRoles)
+                {
+                    authClaims.Add(new Claim(ClaimTypes.Role, role));
                 }
+
+                // Generate the JWT token with the claims and refresh token
+                var jwtToken = _user.GetToken(authClaims);
+                var refreshToken = GenerateRefreshToken();
+                _ = int.TryParse(_configuration["JWT:RefreshTokenValidity"], out int refreshTokenValidity);
+                var refreshTokenExpiry = DateTime.UtcNow.AddDays(refreshTokenValidity);
+
+                // Attach the token to user
+                user.RefreshToken = refreshToken;
+                user.RefreshTokenExpiry = refreshTokenExpiry;
+
+                // Update
+                await _userManager.UpdateAsync(user);
+
+                // Return the JWT token and its expiration time
+                return Ok(new
+                {
+                    AccessToken = new JwtSecurityTokenHandler().WriteToken(jwtToken),
+                    AccessTokenExpiration = jwtToken.ValidTo,
+                    RefreshToken = refreshToken,
+                    RefreshTokenExpiration = refreshTokenExpiry
+                });
             }
 
             return Unauthorized();
-
         }
 
         [HttpPost]
@@ -190,12 +195,20 @@ namespace LearningApp.Controllers
 
                         //generate the token with the claims..
                         var jwtToken = GetToken(authClaims);
+                        var refreshToken = GenerateRefreshToken();
+                        _ = int.TryParse(_configuration["JWT:RefreshTokenValidity"], out int refreshTokenValidity);
+                        var refreshTokenExpiry = DateTime.UtcNow.AddDays(refreshTokenValidity);
+                        // Attach the token to user
+                        user.RefreshToken = refreshToken;
+                        user.RefreshTokenExpiry = refreshTokenExpiry;
 
                         //returning the token
                         return Ok(new
                         {
                             token = new JwtSecurityTokenHandler().WriteToken(jwtToken),
-                            expiration = jwtToken.ValidTo
+                            expiration = jwtToken.ValidTo,
+                            RefreshToken = refreshToken,
+                            RefreshTokenExpiration = refreshTokenExpiry
                         });
 
                     }
@@ -335,6 +348,15 @@ namespace LearningApp.Controllers
                 signingCredentials: new SigningCredentials(authSigningKey,SecurityAlgorithms.HmacSha256)
           );
             return token;
+        }
+
+
+        private string GenerateRefreshToken()
+        {
+            var randomNumber = new Byte[64];
+            var range = RandomNumberGenerator.Create();
+            range.GetBytes(randomNumber);
+            return Convert.ToBase64String(randomNumber);
         }
     }
 }
