@@ -9,6 +9,7 @@ using LearningApp.Service.Models;
 using LearningApp.Service.Services;
 using User.Management.Service.Services;
 using Microsoft.OpenApi.Models;
+using LearningApp.Data.Models;
 //using NETCore.MailKit.Core;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,7 +19,7 @@ var configuration = builder.Configuration;
 builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 
 // For Identity
-builder.Services.AddIdentity<IdentityUser, IdentityRole>()
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
 
@@ -41,7 +42,8 @@ builder.Services.AddAuthentication(options =>
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(builder.Configuration["Jwt:key"]!))
+            IssuerSigningKey = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(builder.Configuration["Jwt:key"]!)),
+            ClockSkew = TimeSpan.Zero,
         };
     });
 
@@ -55,7 +57,10 @@ builder.Services.Configure<DataProtectionTokenProviderOptions>(otps => otps.Toke
 //email configuration
 var emailConfig = configuration.GetSection("EmailConfiguration").Get<EmailConfiguration>();
 builder.Services.AddSingleton(emailConfig!);
+
 builder.Services.AddScoped<IEmailService, EmailService>();
+
+builder.Services.AddScoped<IUserManagement, UserManagement>();
 
 // Add services to the container.
 
