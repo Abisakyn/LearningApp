@@ -1,7 +1,5 @@
 ﻿using LearningApp.Data.Models;
 using LearningApp.Models;
-//using LearningApp.Models.Authentication.Login;
-//using LearningApp.Models.Authentication.Signup;
 using LearningApp.Service.Models;
 using LearningApp.Service.Models.Authentication.Login;
 using LearningApp.Service.Models.Authentication.Signup;
